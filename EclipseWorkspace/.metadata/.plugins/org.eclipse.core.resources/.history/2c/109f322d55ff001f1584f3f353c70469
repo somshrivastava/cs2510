@@ -1,0 +1,249 @@
+import tester.*;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Predicate;
+
+// represents an instructor
+class Instructor {
+  String name;
+  IList<Course> courses;
+
+  Instructor(String name) {
+    this.name = name;
+    this.courses = new MtList<Course>();
+  }
+
+  // adds a course to the list of courses the instructor teachers
+  public void addCourse(Course c) {
+    this.courses = new ConsList<Course>(c, this.courses);
+  }
+
+  // determines whether the given student is in more than one of the instructor's
+  // classes
+  public boolean dejavu(Student s) {
+    return false;
+  }
+}
+
+// represents a student
+class Student {
+  String name;
+  int id;
+  IList<Course> courses;
+
+  Student(String name, int id) {
+    this.name = name;
+    this.id = id;
+    this.courses = new MtList<Course>();
+  }
+
+  // adds the course to the list of courses the student is taking
+  // adds the student to the list of students in the course
+  public void enroll(Course c) {
+    this.courses = new ConsList<Course>(c, this.courses);
+    c.addStudent(this);
+  }
+
+  // determines if the given student and this student share any courses
+  public boolean classmates(Student s) {
+    return false;
+  }
+}
+
+// represents a course
+class Course {
+  String name;
+  Instructor prof;
+  IList<Student> students;
+
+  Course(String name, Instructor prof) {
+    this.name = name;
+    this.prof = prof;
+    this.students = new MtList<Student>();
+    this.prof.addCourse(this);
+  }
+
+  // adds the given student to the list of students within the course
+  public void addStudent(Student s) {
+    this.students = new ConsList<Student>(s, this.students);
+  }
+}
+
+// represents a list
+interface IList<T> {
+
+  // filter this list using the given predicate
+  IList<T> filter(Predicate<T> pred);
+
+  // map a given function onto every member of this list and return a list of the
+  // results
+  <U> IList<U> map(Function<T, U> converter);
+
+  // combine the items in this list using the given function
+  <U> U fold(BiFunction<T, U, U> converter, U initial);
+}
+
+// represents a generic empty list
+class MtList<T> implements IList<T> {
+
+  MtList() {
+  }
+
+  // filter this empty list using the given predicate
+  public IList<T> filter(Predicate<T> pred) {
+    return new MtList<T>();
+  }
+
+  // map a given function onto every member of this list and return a list of the
+  // results
+  public <U> IList<U> map(Function<T, U> converter) {
+    return new MtList<U>();
+  }
+
+  // combine the items in this list using the given function
+  public <U> U fold(BiFunction<T, U, U> converter, U initial) {
+    return initial;
+  }
+}
+
+//represents a generic non-empty list
+class ConsList<T> implements IList<T> {
+  T first;
+  IList<T> rest;
+
+  ConsList(T first, IList<T> rest) {
+    this.first = first;
+    this.rest = rest;
+  }
+
+  // filter this non-empty list using the given predicate
+  public IList<T> filter(Predicate<T> pred) {
+    if (pred.test(this.first)) {
+      return new ConsList<T>(this.first, this.rest.filter(pred));
+    }
+    else {
+      return this.rest.filter(pred);
+    }
+  }
+
+  // map a given function onto every member of this list and return a list of the
+  // results
+  public <U> IList<U> map(Function<T, U> converter) {
+    return new ConsList<U>(converter.apply(this.first), this.rest.map(converter));
+  }
+
+  // combine the items in this list using the given function
+  public <U> U fold(BiFunction<T, U, U> converter, U initial) {
+    return converter.apply(this.first, this.rest.fold(converter, initial));
+  }
+}
+
+//examples and tests for registrar
+class ExamplesRegistrar {
+  // example students
+  Student som;
+  Student ryan;
+  Student arthur;
+  Student anoushka;
+  Student naman;
+
+  // example instructors
+  Instructor razzaq;
+  Instructor sloan;
+  Instructor massey;
+  Instructor hamlin;
+
+  // example courses
+  Course fundies1;
+  Course fundies2;
+  Course calc3;
+  Course discrete;
+
+  // initialize test data
+  public void initializeData() {
+    // make students
+    som = new Student("Som", 1);
+    ryan = new Student("Ryan", 2);
+    arthur = new Student("Arthur", 3);
+    anoushka = new Student("Anoushka", 4);
+    naman = new Student("Naman", 5);
+
+    // make instructors
+    razzaq = new Instructor("Razzaq");
+    sloan = new Instructor("Sloan");
+    massey = new Instructor("Massey");
+    hamlin = new Instructor("Hamlin");
+
+    // make courses
+    fundies1 = new Course("Fundies 1", this.razzaq);
+    fundies2 = new Course("Fundies 2", this.razzaq);
+    calc3 = new Course("Calc 3", this.massey);
+    discrete = new Course("Discrete", this.hamlin);
+  }
+
+  // testing the enroll method
+  public void testEnroll(Tester t) {
+    // initialize data
+    initializeData();
+    // enrolling a student with no courses to a course
+    this.som.enroll(fundies1);
+    t.checkExpect(this.som.courses, new ConsList<Course>(this.fundies1, new MtList<Course>()));
+    t.checkExpect(this.fundies1.students, new ConsList<Student>(this.som, new MtList<Student>()));
+
+    // enrolling a student into a course he is already enrolled in
+    this.som.enroll(fundies1);
+    t.checkExpect(this.som.courses, new ConsList<Course>(this.fundies1, new MtList<Course>()));
+    t.checkExpect(this.fundies1.students, new ConsList<Student>(this.som, new MtList<Student>()));
+
+    // enrolling a student into a second course
+    this.som.enroll(this.calc3);
+    t.checkExpect(this.som.courses, new ConsList<Course>(this.calc3,
+        new ConsList<Course>(this.fundies1, new MtList<Course>())));
+    t.checkExpect(this.calc3.students, new ConsList<Student>(this.som, new MtList<Student>()));
+
+    // enrolling a second student to a course
+    this.ryan.enroll(fundies1);
+    t.checkExpect(this.ryan.courses, new ConsList<Course>(this.fundies1, new MtList<Course>()));
+    t.checkExpect(this.fundies1.students,
+        new ConsList<Student>(this.ryan, new ConsList<Student>(this.som, new MtList<Student>())));
+  }
+
+  // testing the classmates method
+  public void testClassmates(Tester t) {
+    // initialize data
+    initializeData();
+
+    // testing two students that are not classmates
+    this.som.enroll(fundies1);
+    t.checkExpect(this.som.classmates(this.ryan), false);
+
+    // testing two students that are classmates
+    this.ryan.enroll(fundies1);
+    t.checkExpect(this.som.classmates(this.ryan), true);
+
+    // testing two students that are classmates in more than one class
+    this.som.enroll(calc3);
+    this.ryan.enroll(calc3);
+    t.checkExpect(this.som.classmates(this.ryan), true);
+
+    // testing if a student is a classmate of itself
+    t.checkExpect(this.som.classmates(this.som), true);
+  }
+
+  // testing the dejavu method
+  public void dejavu(Tester t) {
+    // initialize data
+    initializeData();
+
+    // the student is in none of the instructor's courses
+    t.checkExpect(razzaq.dejavu(this.som), false);
+
+    // the student is in one of the instructor's courses
+    this.som.enroll(fundies1);
+    t.checkExpect(razzaq.dejavu(this.som), false);
+
+    // the student is in two of the instructor's courses
+    this.som.enroll(fundies2);
+    t.checkExpect(razzaq.dejavu(this.som), true);
+  }
+}

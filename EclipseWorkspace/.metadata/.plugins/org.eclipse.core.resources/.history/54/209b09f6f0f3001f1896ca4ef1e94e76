@@ -1,0 +1,233 @@
+import tester.*;
+import java.util.Comparator;
+
+class Book {
+  String title;
+  String author;
+  int price;
+  
+  Book(String title, String author, int price) {
+    this.title = title;
+    this.author = author;
+    this.price = price;
+  }
+}
+
+class BooksByTitle implements Comparator<Book> {
+  public int compare(Book b1, Book b2) {
+    return b1.title.compareTo(b2.title);
+  }
+}
+
+class BooksByAuthor implements Comparator<Book> {
+  public int compare(Book b1, Book b2) {
+    return b1.author.compareTo(b2.title);
+  }
+}
+
+class BooksByPrice implements Comparator<Book> {
+  public int compare(Book b1, Book b2) {
+    return Integer.compare(b1.price, b2.price);
+  }
+}
+
+abstract class ABST<T> {
+  Comparator<T> order;
+  
+  ABST(Comparator<T> order) {
+    this.order = order;
+  }
+  
+  abstract ABST<T> insert(T item);
+  
+  abstract boolean present(T item);
+  
+  abstract T getLeftmost();
+  
+  abstract T getLeftmostHelper(Node<T> prev);
+  
+  abstract ABST<T> getRight();
+  
+  abstract boolean sameTree(ABST<T> given);
+  
+  abstract boolean sameTreeHelper(Leaf<T> given);
+  
+  abstract boolean sameTreeHelper(Node<T> given);
+}
+
+class Leaf<T> extends ABST<T> {
+  
+  Leaf(Comparator<T> order) {
+    super(order);
+  }
+  
+  public ABST<T> insert(T item) {
+    return new Node<>(order, item, new Leaf<>(order), new Leaf<>(order));
+  }
+  
+  public boolean present(T item) {
+    return false;
+  }
+  
+  public T getLeftmost() {
+    throw new RuntimeException("No leftmost item of an empty tree");
+  }
+  
+  public T getLeftmostHelper(Node<T> prev) {
+    return prev.data;
+  }
+  
+  public ABST<T> getRight() {
+    throw new RuntimeException("No right of an empty tree");
+  }
+  
+  public boolean sameTree(ABST<T> given) {
+    return given.sameTreeHelper(this);
+  }
+  
+  public boolean sameTreeHelper(Leaf<T> given) {
+    return true;
+  }
+  
+  public boolean sameTreeHelper(Node<T> given) {
+    return false;
+  }
+}
+
+class Node<T> extends ABST<T> {
+  T data;
+  ABST<T> left;
+  ABST<T> right;
+  
+  Node(Comparator<T> order, T data, ABST<T> left, ABST<T> right) {
+    super(order);
+    this.data = data;
+    this.left = left;
+    this.right = right;
+  }
+  
+  public ABST<T> insert(T item) {
+    if (order.compare(item, data) < 0) {
+      return new Node<>(order, data, left.insert(item), right);
+    } else {
+      return new Node<>(order, data, left, right.insert(item));
+    }
+  }
+  
+  public boolean present(T item) {
+    int comparison = order.compare(item, data);
+    if (comparison == 0) {
+      return true;
+    } else if (comparison < 0) {
+      return left.present(item);
+    } else {
+      return right.present(item);
+    }
+  }
+  
+  public T getLeftmost() {
+    return this.left.getLeftmostHelper(this);
+  }
+  
+  public T getLeftmostHelper(Node<T> prev) {
+    return this.getLeftmost();
+  }
+  
+  public ABST<T> getRight() {
+    if (this.data.equals(this.getLeftmost())) {
+      return new Leaf<T>(this.order);
+    } else {
+      return new Node<T>(this.order, this.data, this.left.getRight(), this.right);
+    }
+  }
+  
+  public boolean sameTree(ABST<T> given) {
+    return given.sameTreeHelper(this);
+  }
+  
+  public boolean sameTreeHelper(Leaf<T> given) {
+    return false;
+  }
+  
+  public boolean sameTreeHelper(Node<T> given) {
+    return this.order.compare(this.data, given.data) == 0
+        && this.left.sameTree(given.left)
+        && this.right.sameTree(given.right);
+  }
+}
+
+class ExamplesABST {
+  Book book1 = new Book("The Giver", "Lois Lowry", 12);
+  Book book2 = new Book("The Outsiders", "S. E. Hinton", 15);
+  Book book3 = new Book("To Kill a Mockingbird", "Harper Lee", 17);
+  Book book4 = new Book("Lord of the Flies", "William Golding", 12);
+  Book book5 = new Book("Fahrenheit 451", "Ray Bradbury", 17);
+
+  Comparator<Book> byTitle = new BooksByTitle();
+  Comparator<Book> byAuthor = new BooksByAuthor();
+  Comparator<Book> byPrice = new BooksByPrice();
+
+  ABST<Book> bstByTitle = new Node<>(byTitle, book3, 
+      new Node<>(byTitle, book4,
+          new Node<>(byTitle, book5, 
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)), 
+          new Leaf<>(byTitle)),
+      new Node<>(byTitle, book2,
+          new Node<>(byTitle, book1, 
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)),
+          new Leaf<>(byTitle)));
+  
+  ABST<Book> bstByTitle2 = new Node<>(byTitle, book3, 
+      new Node<>(byTitle, book4,
+          new Node<>(byTitle, book5, 
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)), 
+          new Leaf<>(byTitle)),
+      new Node<>(byTitle, book2,
+          new Node<>(byTitle, book1, 
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)),
+          new Leaf<>(byTitle)));
+  
+  ABST<Book> bstByTitleWithoutLeftmost = new Node<>(byTitle, book3, 
+      new Node<>(byTitle, book4,
+          new Leaf<>(byTitle), 
+          new Leaf<>(byTitle)),
+      new Node<>(byTitle, book2,
+          new Node<>(byTitle, book1, 
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)),
+          new Leaf<>(byTitle)));
+
+  ABST<Book> bstByAuthor = new Node<>(byAuthor, book5,
+      new Node<>(byAuthor, book1,
+          new Node<>(byAuthor, book3, 
+              new Leaf<>(byAuthor), 
+              new Leaf<>(byAuthor)),
+          new Leaf<>(byAuthor)),
+      new Node<>(byAuthor, book4,
+          new Node<>(byAuthor, book2, 
+              new Leaf<>(byAuthor), 
+              new Leaf<>(byAuthor)),
+          new Leaf<>(byAuthor)));
+
+  ABST<Book> bstByPrice = new Node<>(byPrice, book3,
+      new Node<>(byPrice, book2,
+          new Node<>(byPrice, book1,
+              new Node<>(byPrice, book4, 
+                  new Leaf<>(byPrice), 
+                  new Leaf<>(byPrice)),
+              new Leaf<>(byPrice)),
+          new Leaf<>(byPrice)),
+      new Node<>(byPrice, book5, 
+          new Leaf<>(byPrice), 
+          new Leaf<>(byPrice)));
+  
+  boolean testMethods(Tester t) {
+    return t.checkExpect(bstByTitle.getRight(), bstByTitleWithoutLeftmost)
+        && t.checkExpect(bstByTitle.sameTree(bstByTitle2), true)
+        && t.checkExpect(bstByTitle.sameTree(bstByAuthor), false);
+  }
+}

@@ -1,0 +1,350 @@
+import tester.*;
+import java.util.Comparator;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Predicate;
+
+class Book {
+  String title;
+  String author;
+  int price;
+  
+  Book(String title, String author, int price) {
+    this.title = title;
+    this.author = author;
+    this.price = price;
+  }
+}
+
+class BooksByTitle implements Comparator<Book> {
+  public int compare(Book b1, Book b2) {
+    return b1.title.compareTo(b2.title);
+  }
+}
+
+class IntegerComparator implements Comparator<Integer> {
+  public int compare(Integer int1, Integer int2) {
+    return int1.compareTo(int2);
+  }
+}
+
+class BooksByAuthor implements Comparator<Book> {
+  public int compare(Book b1, Book b2) {
+    return b1.author.compareTo(b2.title);
+  }
+}
+
+class BooksByPrice implements Comparator<Book> {
+  public int compare(Book b1, Book b2) {
+    return Integer.compare(b1.price, b2.price);
+  }
+}
+
+abstract class ABST<T> {
+  Comparator<T> order;
+  
+  ABST(Comparator<T> order) {
+    this.order = order;
+  }
+  
+  abstract ABST<T> insert(T item);
+  
+  abstract boolean present(T item);
+  
+  abstract T getLeftmost();
+  
+  abstract T getLeftmostHelper(Node<T> prev);
+  
+  abstract ABST<T> getRight();
+  
+  abstract boolean sameTree(ABST<T> given);
+  
+  abstract boolean sameTreeHelper(Leaf<T> given);
+  
+  abstract boolean sameTreeHelper(Node<T> given);
+  
+  abstract boolean sameData(ABST<T> given);
+  
+  abstract IList<T> buildList();
+}
+
+class Leaf<T> extends ABST<T> {
+  
+  Leaf(Comparator<T> order) {
+    super(order);
+  }
+  
+  public ABST<T> insert(T item) {
+    return new Node<>(order, item, new Leaf<>(order), new Leaf<>(order));
+  }
+  
+  public boolean present(T item) {
+    return false;
+  }
+  
+  public T getLeftmost() {
+    throw new RuntimeException("No leftmost item of an empty tree");
+  }
+  
+  public T getLeftmostHelper(Node<T> prev) {
+    return prev.data;
+  }
+  
+  public ABST<T> getRight() {
+    throw new RuntimeException("No right of an empty tree");
+  }
+  
+  public boolean sameTree(ABST<T> given) {
+    return given.sameTreeHelper(this);
+  }
+  
+  public boolean sameTreeHelper(Leaf<T> given) {
+    return true;
+  }
+  
+  public boolean sameTreeHelper(Node<T> given) {
+    return false;
+  }
+  
+  public boolean sameData(ABST<T> given) {
+    return given.sameTreeHelper(this);
+  }
+  
+  public IList<T> buildList() {
+    return new MtList<T>();
+  }
+}
+
+class Node<T> extends ABST<T> {
+  T data;
+  ABST<T> left;
+  ABST<T> right;
+  
+  Node(Comparator<T> order, T data, ABST<T> left, ABST<T> right) {
+    super(order);
+    this.data = data;
+    this.left = left;
+    this.right = right;
+  }
+  
+  public ABST<T> insert(T item) {
+    if (order.compare(item, data) < 0) {
+      return new Node<>(order, data, left.insert(item), right);
+    } else {
+      return new Node<>(order, data, left, right.insert(item));
+    }
+  }
+  
+  public boolean present(T item) {
+    int comparison = order.compare(item, data);
+    return comparison == 0 || left.present(item) || right.present(item);
+  }
+  
+  public T getLeftmost() {
+    return this.left.getLeftmostHelper(this);
+  }
+  
+  public T getLeftmostHelper(Node<T> prev) {
+    return this.getLeftmost();
+  }
+  
+  public ABST<T> getRight() {
+    if (this.data.equals(this.getLeftmost())) {
+      return new Leaf<T>(this.order);
+    } else {
+      return new Node<T>(this.order, this.data, this.left.getRight(), this.right);
+    }
+  }
+  
+  public boolean sameTree(ABST<T> given) {
+    return given.sameTreeHelper(this);
+  }
+  
+  public boolean sameTreeHelper(Leaf<T> given) {
+    return false;
+  }
+  
+  public boolean sameTreeHelper(Node<T> given) {
+    return this.order.compare(this.data, given.data) == 0
+        && this.left.sameTree(given.left)
+        && this.right.sameTree(given.right);
+  }
+  
+  public boolean sameData(ABST<T> given) {
+    return this.order.compare(this.getLeftmost(), given.getLeftmost()) == 0
+        && this.getRight().sameData(given.getRight());
+  }
+  
+  public IList<T> buildList() {
+    return new MtList<T>();
+  }
+}
+
+// represents a list
+interface IList<T> { 
+  IList<T> addToEnd(T given);
+}
+
+// represents a generic empty list
+class MtList<T> implements IList<T> {
+  
+  MtList() { }
+  
+  public IList<T> addToEnd(T given) {
+    return new ConsList<T>(given, new MtList<T>());
+  }
+}
+
+// represents a generic non-empty list
+class ConsList<T> implements IList<T> {
+  T first;
+  IList<T> rest;
+  
+  ConsList(T first, IList<T> rest) {
+   this.first = first;
+   this.rest = rest;
+  }
+  
+  public IList<T> addToEnd(T given) {
+    return new ConsList<T>(this.first, this.rest.addToEnd(given));
+  }
+}
+
+class ExamplesABST {
+  Comparator<Integer> intComp = new IntegerComparator();
+  ABST<Integer> emptyTree;
+  ABST<Integer> tree1;
+  ABST<Integer> tree2;
+  ABST<Integer> tree3;
+  ABST<Integer> singleNodeTree;
+  ABST<Integer> doubleNodeTree;
+  
+  /*
+   * ASCII Representation of Trees:
+   * 
+   * tree1:        10
+   *              /  \
+   *             5    15
+   * 
+   * tree2:        5
+   *                \
+   *                10
+   *                  \
+   *                  15
+   * 
+   * tree3:        15
+   *              /
+   *            10
+   *           /
+   *          5
+   */
+  
+  public void initData() {
+    this.emptyTree = new Leaf<>(intComp);
+    this.tree1 = new Node<>(intComp, 10,
+        new Node<>(intComp, 5, new Leaf<>(intComp), new Leaf<>(intComp)),
+        new Node<>(intComp, 15, new Leaf<>(intComp), new Leaf<>(intComp)));
+    this.tree2 = new Node<>(intComp, 5,
+        new Leaf<>(intComp),
+        new Node<>(intComp, 10, new Leaf<>(intComp), new Node<>(intComp, 15, new Leaf<>(intComp), new Leaf<>(intComp))));
+    this.tree3 = new Node<>(intComp, 15,
+        new Node<>(intComp, 10, new Node<>(intComp, 5, new Leaf<>(intComp), new Leaf<>(intComp)), new Leaf<>(intComp)),
+        new Leaf<>(intComp));
+    this.singleNodeTree = new Node<>(intComp, 10, new Leaf<>(intComp), new Leaf<>(intComp));
+    this.doubleNodeTree = new Node<>(intComp, 10, new Node<>(intComp, 5, new Leaf<>(intComp), new Leaf<>(intComp)), new Leaf<>(intComp));
+  }
+  
+  public boolean testInsert(Tester t) {
+    this.initData();
+    return t.checkExpect(this.emptyTree.insert(10), this.singleNodeTree)
+        && t.checkExpect(this.singleNodeTree.insert(5), this.doubleNodeTree)
+        && t.checkExpect(this.doubleNodeTree.insert(15), this.tree1);
+  }
+  
+  public boolean testPresent(Tester t) {
+    return t.checkExpect(emptyTree.present(10), false)
+        && t.checkExpect(tree1.present(10), true)
+        && t.checkExpect(tree1.present(5), true)
+        && t.checkExpect(tree1.present(15), true)
+        && t.checkExpect(tree1.present(20), false);
+  }
+  
+  public boolean testGetLeftmost(Tester t) {
+    return t.checkException(new RuntimeException("No leftmost item of an empty tree"), emptyTree, "getLeftmost")
+        && t.checkExpect(tree1.getLeftmost(), 5)
+        && t.checkExpect(tree2.getLeftmost(), 5)
+        && t.checkExpect(tree3.getLeftmost(), 5);
+  }
+  
+  public boolean testGetRight(Tester t) {
+    return true;
+  }
+  
+  Book book1 = new Book("The Giver", "Lois Lowry", 12);
+  Book book2 = new Book("The Outsiders", "S. E. Hinton", 15);
+  Book book3 = new Book("To Kill a Mockingbird", "Harper Lee", 17);
+  Book book4 = new Book("Lord of the Flies", "William Golding", 12);
+  Book book5 = new Book("Fahrenheit 451", "Ray Bradbury", 17);
+
+  Comparator<Book> byTitle = new BooksByTitle();
+  Comparator<Book> byAuthor = new BooksByAuthor();
+  Comparator<Book> byPrice = new BooksByPrice();
+
+  ABST<Book> bstByTitle = new Node<>(byTitle, book3, 
+      new Node<>(byTitle, book4,
+          new Node<>(byTitle, book5, 
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)), 
+          new Leaf<>(byTitle)),
+      new Node<>(byTitle, book2,
+          new Node<>(byTitle, book1,
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)),
+          new Leaf<>(byTitle)));
+  
+  ABST<Book> bstByTitle2 = new Node<>(byTitle, book3, 
+      new Node<>(byTitle, book4,
+          new Node<>(byTitle, book5, 
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)), 
+          new Leaf<>(byTitle)),
+      new Node<>(byTitle, book2,
+          new Node<>(byTitle, book1, 
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)),
+          new Leaf<>(byTitle)));
+  
+  ABST<Book> bstByTitleWithoutLeftmost = new Node<>(byTitle, book3, 
+      new Node<>(byTitle, book4,
+          new Leaf<>(byTitle), 
+          new Leaf<>(byTitle)),
+      new Node<>(byTitle, book2,
+          new Node<>(byTitle, book1, 
+              new Leaf<>(byTitle), 
+              new Leaf<>(byTitle)),
+          new Leaf<>(byTitle)));
+
+  ABST<Book> bstByAuthor = new Node<>(byAuthor, book5,
+      new Node<>(byAuthor, book1,
+          new Node<>(byAuthor, book3, 
+              new Leaf<>(byAuthor), 
+              new Leaf<>(byAuthor)),
+          new Leaf<>(byAuthor)),
+      new Node<>(byAuthor, book4,
+          new Node<>(byAuthor, book2, 
+              new Leaf<>(byAuthor), 
+              new Leaf<>(byAuthor)),
+          new Leaf<>(byAuthor)));
+
+  ABST<Book> bstByPrice = new Node<>(byPrice, book3,
+      new Node<>(byPrice, book2,
+          new Node<>(byPrice, book1,
+              new Node<>(byPrice, book4, 
+                  new Leaf<>(byPrice), 
+                  new Leaf<>(byPrice)),
+              new Leaf<>(byPrice)),
+          new Leaf<>(byPrice)),
+      new Node<>(byPrice, book5, 
+          new Leaf<>(byPrice), 
+          new Leaf<>(byPrice)));
+}

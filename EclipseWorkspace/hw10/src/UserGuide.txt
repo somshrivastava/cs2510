@@ -1,0 +1,21 @@
+LightEmAll Game Instructions
+
+How to Play:
+- Connect all the tiles so they are powered by the power station
+- The power station starts in the top-left corner
+- Only connected tiles through wires will be powered
+
+Controls:
+- Click a tile to rotate it 90 degrees clockwise
+- Use arrow keys to move the power station to a connected neighbor
+- Press 'n' to restart the game with a new board
+
+Game Rules:
+- A tile is powered if it's connected by wires to the power station
+- Win when all tiles are powered
+
+Extra Credit Features:
+- Power station radius based on graph diameter
+- Colored wires based on power distance
+- Restart with 'n' key
+- Step and time tracking

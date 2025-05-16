@@ -1,0 +1,468 @@
+import tester.Tester;
+import java.awt.Color;
+import javalib.funworld.*;
+import javalib.worldimages.*;
+
+// represents a list of words
+interface ILoWord {
+  
+  /*
+   * TEMPLATE:  
+   * Methods: 
+   * ... this.sort() ...                          -- ILoWord
+   * ... this.sortHelper(IWord word) ...          -- ILoWord
+   * ... this.isSorted() ...                      -- boolean
+   * ... this.isSortedHelper() ...                -- boolean
+   * ... this.interleave(ILoWord other) ...       -- ILoWord
+   * ... this.merge(ILoWord other) ...            -- ILoWord
+   * ... this.checkAndReduce(String str) ...      -- ILoWord
+   * ... this.addToEnd(IWord word) ...            -- ILoWord
+   * ... this.filterOutEmpties() ...              -- ILoWord
+   * ... this.draw(WorldScene scene) ...          -- WorldScene
+   * 
+  */
+ 
+  // produces a new list with words sorted alphabetically
+  ILoWord sort();
+  
+  // insert sorts a word into the list
+  ILoWord sortHelper(IWord word);
+
+  // determines whether the list is sorted alphabetically
+  boolean isSorted();
+  
+  // determines whether previous word and current word are correctly sorted
+  boolean isSortedHelper(IWord prev);
+  
+  // produces a list interleaved with the given list
+  ILoWord interleave(ILoWord other);
+  
+  // merges two sorted lists into a new sorted list
+  ILoWord merge(ILoWord other);
+  
+  // removes the first letter of words matching the given letter
+  ILoWord checkAndReduce(String str);
+  
+  // adds a new word to the end of the list
+  ILoWord addToEnd(IWord word);
+  
+  // filters out empty words from the list
+  ILoWord filterOutEmpties();
+  
+  WorldScene draw(WorldScene scene);
+}
+
+// represents an empty list of words
+class MtLoWord implements ILoWord {
+  
+  /*
+   * TEMPLATE: 
+   * Methods: 
+   * ... this.sort() ...                          -- ILoWord
+   * ... this.sortHelper(IWord word) ...          -- ILoWord
+   * ... this.isSorted() ...                      -- boolean
+   * ... this.isSortedHelper() ...                -- boolean
+   * ... this.interleave(ILoWord other) ...       -- ILoWord
+   * ... this.merge(ILoWord other) ...            -- ILoWord
+   * ... this.checkAndReduce(String str) ...      -- ILoWord
+   * ... this.addToEnd(IWord word) ...            -- ILoWord
+   * ... this.filterOutEmpties() ...              -- ILoWord
+   * ... this.draw(WorldScene scene) ...          -- WorldScene
+   * 
+  */
+  
+  public ILoWord sort() {
+    return this;
+  }
+  
+  public ILoWord sortHelper(IWord word) {
+    return new ConsLoWord(word, this);
+  }
+  
+  public boolean isSorted() {
+    return true;
+  }
+  
+  public boolean isSortedHelper(IWord prev) {
+    return true;
+  }
+  
+  public ILoWord interleave(ILoWord other) {
+    return other;
+  }
+  
+  public ILoWord merge(ILoWord other) {
+    return other;
+  }
+  
+  public ILoWord checkAndReduce(String str) {
+    return this;
+  }
+  
+  public ILoWord addToEnd(IWord word) {
+    return new ConsLoWord(word, this);
+  }
+  
+  public ILoWord filterOutEmpties() {
+    return this;
+  }
+  
+  public WorldScene draw(WorldScene scene) {
+    return scene;
+  }
+}
+
+// represents a list of words
+class ConsLoWord implements ILoWord {
+  IWord first;
+  ILoWord rest;
+
+  ConsLoWord(IWord first, ILoWord rest) {
+    this.first = first;
+    this.rest = rest;
+  }
+  
+  /*
+   * TEMPLATE: 
+   * Fields:
+   * ... this.first ...                           -- IWord
+   * ... this.rest ...                            -- ILoWord
+   * 
+   * Methods: 
+   * ... this.sort() ...                          -- ILoWord
+   * ... this.sortHelper(IWord word) ...          -- ILoWord
+   * ... this.isSorted() ...                      -- boolean
+   * ... this.isSortedHelper() ...                -- boolean
+   * ... this.interleave(ILoWord other) ...       -- ILoWord
+   * ... this.merge(ILoWord other) ...            -- ILoWord
+   * ... this.checkAndReduce(String str) ...      -- ILoWord
+   * ... this.addToEnd(IWord word) ...            -- ILoWord
+   * ... this.filterOutEmpties() ...              -- ILoWord
+   * ... this.draw(WorldScene scene) ...          -- WorldScene
+   * 
+   * Methods on fields:
+   * ... this.first.isEmpty() ...                          -- ILoWord
+   * ... this.first.startsWith(String str) ...             -- boolean
+   * ... this.first.reduce() ...                           -- IWord
+   * ... this.first.compareTo() ...                        -- int
+   * 
+  */
+
+  public ILoWord sort() {
+    return this.rest.sort().sortHelper(this.first);
+  }
+  
+  public ILoWord sortHelper(IWord word) {
+    if (word.compareTo(this.first) <= 0) {
+      return new ConsLoWord(word, this);
+    } else {
+      return new ConsLoWord(this.first, this.rest.sortHelper(word));
+    }
+  }
+  
+  public boolean isSorted() {
+    return this.rest.isSortedHelper(this.first);
+  }
+  
+  public boolean isSortedHelper(IWord prev) {
+    return prev.compareTo(this.first) <= 0 && this.rest.isSortedHelper(this.first);
+  }
+  
+  public ILoWord interleave(ILoWord other) {
+    return new ConsLoWord(this.first, other.interleave(this.rest));
+  }
+  
+  public ILoWord merge(ILoWord other) {
+    if (other instanceof MtLoWord) {
+      return this;
+    } else {
+      ConsLoWord otherCons = (ConsLoWord) other;
+
+      if (this.first.compareTo(otherCons.first) <= 0) {
+        return new ConsLoWord(this.first, this.rest.merge(other));
+      } else {
+        return new ConsLoWord(otherCons.first, this.merge(otherCons.rest));
+      }
+    }
+  }
+  
+  public ILoWord checkAndReduce(String str) {
+    if (this.first.startsWith(str)) {
+      return new ConsLoWord(this.first.reduce(), this.rest.checkAndReduce(str));
+    } else {
+      return new ConsLoWord(this.first, this.rest.checkAndReduce(str));
+    }
+  }
+  
+  public ILoWord addToEnd(IWord word) {
+    return new ConsLoWord(this.first, this.rest.addToEnd(word));
+  }
+  
+  public ILoWord filterOutEmpties() {
+    if (this.first.isEmpty()) {
+      return this.rest.filterOutEmpties();
+    } {
+      return new ConsLoWord(this.first, this.rest.filterOutEmpties());
+    }
+  }
+  
+  public WorldScene draw(WorldScene scene) {
+    return this.rest.draw(this.first.draw(scene));
+  }
+}
+
+// represents a word in the ZType game
+interface IWord {
+  
+  /*
+   * TEMPLATE: 
+   * Methods: 
+   * ... this.isEmpty() ...                          -- ILoWord
+   * ... this.startsWith(String str) ...             -- boolean
+   * ... this.reduce() ...                           -- IWord
+   * ... this.compareTo() ...                        -- int
+  */
+ 
+  // determines whether word is empty
+  boolean isEmpty();
+  
+  // determines whether word starts with a given letter
+  boolean startsWith(String str);
+  
+  // returns the same string without the first letter
+  IWord reduce();
+  
+  // returns a number determining which word is alphabetically first
+  int compareTo(IWord other);
+  
+  // draws the word onto the scene
+  WorldScene draw(WorldScene scene);
+}
+
+// represents an active word in the ZType game
+class ActiveWord implements IWord {
+  String word;
+  int x;
+  int y;
+
+  ActiveWord(String word, int x, int y) {
+    this.word = word;
+    this.x = x;
+    this.y = y;
+  }
+  
+  /*
+   * TEMPLATE: 
+   * Fields:
+   * ... this.word ...                               -- String
+   * ... this.x ...                                  -- int
+   * ... this.y ...                                  -- int
+   * 
+   * Methods: 
+   * ... this.isEmpty() ...                          -- ILoWord
+   * ... this.startsWith(String str) ...             -- boolean
+   * ... this.reduce() ...                           -- IWord
+   * ... this.compareTo() ...                        -- int
+  */
+
+  public boolean isEmpty() {
+    return this.word.isEmpty();
+  }
+  
+  public boolean startsWith(String str) {
+    return this.word.startsWith(str);
+  }
+  
+  public IWord reduce() {
+    if (this.word.isEmpty()) {
+      return new ActiveWord("", this.x, this.y);
+    } else {
+      return new ActiveWord(this.word.substring(1), this.x, this.y);
+    }
+  }
+  
+  public int compareTo(IWord other) {
+    if (other instanceof ActiveWord) {
+      return this.word.compareToIgnoreCase(((ActiveWord) other).word);
+    } else if (other instanceof InactiveWord) {
+      return this.word.compareToIgnoreCase(((InactiveWord) other).word);
+    }
+    return 0;
+  }
+  
+  public WorldScene draw(WorldScene scene) {
+    // Create a TextImage for the active word (blue text)
+    TextImage wordImage = new TextImage(this.word, 20, Color.BLUE);
+    // Place the image on the scene at the word's x and y coordinates
+    return scene.placeImageXY(wordImage, this.x, this.y);
+  }
+}
+
+// represents an inactive word in the ZType game
+class InactiveWord implements IWord {
+  String word;
+  int x;
+  int y;
+
+  InactiveWord(String word, int x, int y) {
+    this.word = word;
+    this.x = x;
+    this.y = y;
+  }
+  
+  /*
+   * TEMPLATE: 
+   * Fields:
+   * ... this.word ...                               -- String
+   * ... this.x ...                                  -- int
+   * ... this.y ...                                  -- int
+   * 
+   * Methods: 
+   * ... this.isEmpty() ...                          -- ILoWord
+   * ... this.startsWith(String str) ...             -- boolean
+   * ... this.reduce() ...                           -- IWord
+   * ... this.compareTo() ...                        -- int
+  */
+  
+  public boolean isEmpty() {
+    return this.word.isEmpty();
+  }
+  
+  public boolean startsWith(String str) {
+    return false;
+  }
+  
+  public IWord reduce() {
+    return this;
+  }
+  
+  public int compareTo(IWord other) {
+    if (other instanceof ActiveWord) {
+      return this.word.compareToIgnoreCase(((ActiveWord) other).word);
+    } else if (other instanceof InactiveWord) {
+      return this.word.compareToIgnoreCase(((InactiveWord) other).word);
+    }
+    return 0;
+  }
+  
+  public WorldScene draw(WorldScene scene) {
+    // Create a TextImage for the inactive word (gray text)
+    // TextImage wordImage = new TextImage(this.word, 20, Color.GRAY);
+    // Place the image on the scene at the word's x and y coordinates
+    return scene;
+  }
+}
+
+// all examples and tests for ILoWord
+class ExamplesWordLists {
+  IWord hello = new ActiveWord("hello", 0, 0);
+  IWord world = new ActiveWord("world", 0, 0);
+  IWord java = new ActiveWord("java", 0, 0);
+  IWord programming = new ActiveWord("programming", 0, 0);
+  IWord apple = new ActiveWord("Apple", 0, 0);
+  IWord inactiveA = new InactiveWord("inactiveA", 0, 0);
+  IWord inactiveB = new InactiveWord("inactiveB", 0, 0);
+  IWord empty = new InactiveWord("", 0, 0);
+
+  ILoWord mt = new MtLoWord();
+  ILoWord activeList = new ConsLoWord(hello, new ConsLoWord(world, mt));
+  ILoWord inactiveList = new ConsLoWord(inactiveA, new ConsLoWord(inactiveB, mt));
+  ILoWord mixedList = new ConsLoWord(hello, new ConsLoWord(inactiveA, new ConsLoWord(world, mt)));
+  ILoWord unsortedList = new ConsLoWord(world, new ConsLoWord(hello, mt));
+  ILoWord listWithUppercase = new ConsLoWord(apple, new ConsLoWord(java, mt));
+  ILoWord listWithEmpty = new ConsLoWord(empty, activeList);
+
+  // test sort
+  boolean testSort(Tester t) {
+    // sorting an empty list
+    return t.checkExpect(mt.sort(), mt) 
+        // sorting a list with at least two words
+        && t.checkExpect(unsortedList.sort(), activeList) 
+        // sorting a list with upper- and lowercase strings
+        && t.checkExpect(listWithUppercase.sort(), new ConsLoWord(apple, new ConsLoWord(java, mt)));
+  }
+
+  // test isSorted
+  boolean testIsSorted(Tester t) {
+    // checking an empty list
+    return t.checkExpect(mt.isSorted(), true) 
+        // checking a sorted list with at least two words
+        && t.checkExpect(activeList.isSorted(), true) 
+        // checking an unsorted list with at least two words
+        && t.checkExpect(unsortedList.isSorted(), false) 
+        // checking a list with uppercase and lowercase strings
+        && t.checkExpect(listWithUppercase.isSorted(), true);
+  }
+
+  // test interleave
+  boolean testInterleave(Tester t) {
+    // interleaving two empty lists
+    return t.checkExpect(mt.interleave(mt), mt) 
+        // interleaving an empty list with a non-empty list
+        && t.checkExpect(mt.interleave(activeList), activeList) 
+        // interleaving a non-empty list with an empty list
+        && t.checkExpect(activeList.interleave(mt), activeList) 
+        // interleaving two non-empty lists
+        && t.checkExpect(activeList.interleave(inactiveList), new ConsLoWord(hello,
+            new ConsLoWord(inactiveA, new ConsLoWord(world, new ConsLoWord(inactiveB, mt))))) 
+        // interleaving two non-empty lists of different lengths
+        && t.checkExpect(mixedList.interleave(activeList),
+            new ConsLoWord(hello, new ConsLoWord(hello,
+                new ConsLoWord(inactiveA, new ConsLoWord(world, new ConsLoWord(world, mt))))));
+  }
+
+  // test merge
+  boolean testMerge(Tester t) {
+    // merging two empty lists
+    return t.checkExpect(mt.merge(mt), mt) 
+        // merging an empty list with a non-empty sorted list
+        && t.checkExpect(mt.merge(activeList), activeList) 
+        // merging a non-empty sorted list with an empty list
+        && t.checkExpect(activeList.merge(mt), activeList) 
+        // merging two non-empty sorted lists
+        && t.checkExpect(activeList.merge(inactiveList), new ConsLoWord(hello,
+            new ConsLoWord(inactiveA, new ConsLoWord(inactiveB, new ConsLoWord(world, mt))))) 
+        // merging two non-empty sorted lists of different lengths
+        && t.checkExpect(mixedList.merge(activeList), new ConsLoWord(hello, new ConsLoWord(hello,
+            new ConsLoWord(inactiveA, new ConsLoWord(world, new ConsLoWord(world, mt))))));
+  }
+
+  // test checkAndReduce
+  boolean testCheckAndReduce(Tester t) {
+    // checkAndReduce on an empty list
+    return t.checkExpect(mt.checkAndReduce("h"), mt) 
+        // checkAndReduce on a non-empty list with at least two active words
+        && t.checkExpect(activeList.checkAndReduce("h"),
+            new ConsLoWord(new ActiveWord("ello", 0, 0), new ConsLoWord(world, mt)));
+  }
+
+  // test addToEnd
+  boolean testAddToEnd(Tester t) {
+    // adding to an empty list
+    return t.checkExpect(mt.addToEnd(hello), new ConsLoWord(hello, mt)) 
+        // adding to a non-empty list
+        && t.checkExpect(activeList.addToEnd(inactiveA),
+            new ConsLoWord(hello, new ConsLoWord(world, new ConsLoWord(inactiveA, mt))));
+  }
+
+  // test filterOutEmpties
+  boolean testFilterOutEmpties(Tester t) {
+    // filtering an empty list
+    return t.checkExpect(mt.filterOutEmpties(), mt) 
+        // filtering a non-empty list
+        && t.checkExpect(activeList.filterOutEmpties(), activeList) 
+        // filtering a non-empty list with more than one empty word
+        && t.checkExpect(new ConsLoWord(empty, new ConsLoWord(empty, activeList)).filterOutEmpties(), activeList);
+  }
+
+  // test draw
+  boolean testDraw(Tester t) {
+    WorldScene scene = new WorldScene(500, 500);
+    // draw invoked by an empty list
+    return t.checkExpect(mt.draw(scene), scene) 
+        // draw invoked by a non-empty list
+        && t.checkExpect(activeList.draw(scene), 
+            scene.placeImageXY(new TextImage("hello", 20, Color.BLUE), 0, 0)
+                 .placeImageXY(new TextImage("world", 20, Color.BLUE), 0, 0));
+  }
+}

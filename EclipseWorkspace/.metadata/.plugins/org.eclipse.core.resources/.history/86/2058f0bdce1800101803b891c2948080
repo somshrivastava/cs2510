@@ -1,0 +1,655 @@
+// LightEmAll.java - Full Version with Extra Credit Features
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Random;
+import tester.*;
+import javalib.impworld.*;
+import java.awt.Color;
+import javalib.worldimages.*;
+
+interface GameConstants {
+  int TILE_SIZE = 40;
+  int WIRE_WIDTH = 6;
+  Color TILE_COLOR = Color.DARK_GRAY;
+  Color POWERED_WIRE_COLOR = Color.YELLOW;
+  Color UNPOWERED_WIRE_COLOR = Color.GRAY;
+  Color STAR_OUTLINE_COLOR = new Color(255, 128, 0);
+  Color STAR_FILL_COLOR = new Color(0, 255, 255);
+}
+
+class Edge {
+  GamePiece fromNode;
+  GamePiece toNode;
+  int weight;
+
+  Edge(GamePiece fromNode, GamePiece toNode, int weight) {
+    this.fromNode = fromNode;
+    this.toNode = toNode;
+    this.weight = weight;
+  }
+}
+
+class GamePiece implements GameConstants {
+  int row;
+  int column;
+  boolean left, right, top, bottom;
+  boolean isPowerStation;
+  boolean isPowered;
+  int distanceFromPower;
+
+  GamePiece(int row, int column, boolean top, boolean right, boolean bottom, boolean left) {
+    this.row = row;
+    this.column = column;
+    this.top = top;
+    this.right = right;
+    this.bottom = bottom;
+    this.left = left;
+    this.isPowerStation = false;
+    this.isPowered = false;
+    this.distanceFromPower = -1;
+  }
+
+  void rotate() {
+    boolean temp = this.top;
+    this.top = this.left;
+    this.left = this.bottom;
+    this.bottom = this.right;
+    this.right = temp;
+  }
+
+  void connectInDirection(String direction) {
+    if (direction.equals("top")) this.top = true;
+    else if (direction.equals("bottom")) this.bottom = true;
+    else if (direction.equals("left")) this.left = true;
+    else if (direction.equals("right")) this.right = true;
+  }
+
+  void connectTo(GamePiece other) {
+    if (this.row == other.row) {
+      if (this.column < other.column) {
+        this.connectInDirection("right");
+        other.connectInDirection("left");
+      } else {
+        this.connectInDirection("left");
+        other.connectInDirection("right");
+      }
+    } else if (this.column == other.column) {
+      if (this.row < other.row) {
+        this.connectInDirection("bottom");
+        other.connectInDirection("top");
+      } else {
+        this.connectInDirection("top");
+        other.connectInDirection("bottom");
+      }
+    }
+  }
+
+  WorldImage tileImage() {
+    Color wireColor = isPowered
+        ? new Color(Math.max(0, 255 - distanceFromPower * 20), Math.max(0, 255 - distanceFromPower * 10), 0)
+        : UNPOWERED_WIRE_COLOR;
+
+    WorldImage tileImage = new OverlayImage(
+        new RectangleImage(WIRE_WIDTH, WIRE_WIDTH, OutlineMode.SOLID, wireColor),
+        new RectangleImage(TILE_SIZE, TILE_SIZE, OutlineMode.SOLID, TILE_COLOR));
+    WorldImage vWire = new RectangleImage(WIRE_WIDTH, (TILE_SIZE + 1) / 2, OutlineMode.SOLID, wireColor);
+    WorldImage hWire = new RectangleImage((TILE_SIZE + 1) / 2, WIRE_WIDTH, OutlineMode.SOLID, wireColor);
+
+    if (top) tileImage = new OverlayOffsetAlign(AlignModeX.CENTER, AlignModeY.TOP, vWire, 0, 0, tileImage);
+    if (right) tileImage = new OverlayOffsetAlign(AlignModeX.RIGHT, AlignModeY.MIDDLE, hWire, 0, 0, tileImage);
+    if (bottom) tileImage = new OverlayOffsetAlign(AlignModeX.CENTER, AlignModeY.BOTTOM, vWire, 0, 0, tileImage);
+    if (left) tileImage = new OverlayOffsetAlign(AlignModeX.LEFT, AlignModeY.MIDDLE, hWire, 0, 0, tileImage);
+
+    if (isPowerStation) {
+      tileImage = new OverlayImage(
+          new OverlayImage(new StarImage(TILE_SIZE / 3, 7, OutlineMode.OUTLINE, STAR_OUTLINE_COLOR),
+              new StarImage(TILE_SIZE / 3, 7, OutlineMode.SOLID, STAR_FILL_COLOR)), tileImage);
+    }
+    return tileImage;
+  }
+}
+
+class LightEmAll extends World implements GameConstants {
+  ArrayList<ArrayList<GamePiece>> board;
+  int width, height;
+  int powerRow, powerColumn;
+  Random random;
+  GamePiece powerStation;
+  int powerRadius;
+  int steps;
+  int timeElapsed;
+
+  LightEmAll(int width, int height) {
+    this.random = new Random();
+    this.width = width;
+    this.height = height;
+    this.steps = 0;
+    this.timeElapsed = 0;
+    this.initBoard();
+  }
+
+  public void onTick() {
+    this.timeElapsed++;
+  }
+
+  void initBoard() {
+    this.board = new ArrayList<>();
+    for (int col = 0; col < width; col++) {
+      ArrayList<GamePiece> colList = new ArrayList<>();
+      for (int row = 0; row < height; row++) {
+        colList.add(new GamePiece(row, col, false, false, false, false));
+      }
+      board.add(colList);
+    }
+
+    ArrayList<Edge> allEdges = new ArrayList<>();
+    for (int col = 0; col < width; col++) {
+      for (int row = 0; row < height; row++) {
+        GamePiece current = board.get(col).get(row);
+        if (col < width - 1) allEdges.add(new Edge(current, board.get(col + 1).get(row), random.nextInt(1000)));
+        if (row < height - 1) allEdges.add(new Edge(current, board.get(col).get(row + 1), random.nextInt(1000)));
+      }
+    }
+
+    HashMap<GamePiece, GamePiece> reps = new HashMap<>();
+    for (ArrayList<GamePiece> col : board)
+      for (GamePiece gp : col) reps.put(gp, gp);
+
+    allEdges.sort((e1, e2) -> Integer.compare(e1.weight, e2.weight));
+    for (Edge e : allEdges) {
+      GamePiece rep1 = find(reps, e.fromNode);
+      GamePiece rep2 = find(reps, e.toNode);
+      if (rep1 != rep2) {
+        e.fromNode.connectTo(e.toNode);
+        union(reps, rep1, rep2);
+      }
+    }
+
+    for (ArrayList<GamePiece> col : board)
+      for (GamePiece gp : col)
+        for (int i = 0; i < random.nextInt(4); i++)
+          gp.rotate();
+
+    powerColumn = 0;
+    powerRow = 0;
+    powerStation = board.get(powerColumn).get(powerRow);
+    powerStation.isPowerStation = true;
+    powerRadius = (computeDiameter() / 2) + 1;
+    updateTilesIsPowered();
+  }
+
+  void updateTilesIsPowered() {
+    for (ArrayList<GamePiece> col : board) {
+      for (GamePiece gp : col) {
+        gp.isPowered = false;
+        gp.distanceFromPower = -1;
+      }
+    }
+
+    ArrayList<GamePiece> worklist = new ArrayList<>();
+    HashMap<GamePiece, Integer> dist = new HashMap<>();
+    GamePiece start = powerStation;
+    start.isPowered = true;
+    start.distanceFromPower = 0;
+    worklist.add(start);
+    dist.put(start, 0);
+
+    while (!worklist.isEmpty()) {
+      GamePiece current = worklist.remove(0);
+      int depth = dist.get(current);
+      if (depth >= powerRadius) continue;
+      for (GamePiece neighbor : getConnectedNeighbors(current)) {
+        if (!neighbor.isPowered) {
+          neighbor.isPowered = true;
+          neighbor.distanceFromPower = depth + 1;
+          dist.put(neighbor, depth + 1);
+          worklist.add(neighbor);
+        }
+      }
+    }
+  }
+
+  GamePiece find(HashMap<GamePiece, GamePiece> reps, GamePiece gp) {
+    if (reps.get(gp) != gp) reps.put(gp, find(reps, reps.get(gp)));
+    return reps.get(gp);
+  }
+
+  void union(HashMap<GamePiece, GamePiece> reps, GamePiece a, GamePiece b) {
+    reps.put(find(reps, a), find(reps, b));
+  }
+
+  ArrayList<GamePiece> getConnectedNeighbors(GamePiece gp) {
+    ArrayList<GamePiece> neighbors = new ArrayList<>();
+    int r = gp.row, c = gp.column;
+    if (gp.top && r > 0 && board.get(c).get(r - 1).bottom) neighbors.add(board.get(c).get(r - 1));
+    if (gp.bottom && r < height - 1 && board.get(c).get(r + 1).top) neighbors.add(board.get(c).get(r + 1));
+    if (gp.left && c > 0 && board.get(c - 1).get(r).right) neighbors.add(board.get(c - 1).get(r));
+    if (gp.right && c < width - 1 && board.get(c + 1).get(r).left) neighbors.add(board.get(c + 1).get(r));
+    return neighbors;
+  }
+
+  GamePiece bfsFurthest(GamePiece start) {
+    ArrayList<GamePiece> worklist = new ArrayList<>();
+    HashMap<GamePiece, Boolean> visited = new HashMap<>();
+    worklist.add(start);
+    visited.put(start, true);
+    GamePiece last = start;
+    while (!worklist.isEmpty()) {
+      GamePiece current = worklist.remove(0);
+      last = current;
+      for (GamePiece n : getConnectedNeighbors(current)) {
+        if (!visited.containsKey(n)) {
+          visited.put(n, true);
+          worklist.add(n);
+        }
+      }
+    }
+    return last;
+  }
+
+  int bfsDepth(GamePiece start, GamePiece goal) {
+    ArrayList<GamePiece> worklist = new ArrayList<>();
+    HashMap<GamePiece, Integer> dist = new HashMap<>();
+    worklist.add(start);
+    dist.put(start, 0);
+    while (!worklist.isEmpty()) {
+      GamePiece current = worklist.remove(0);
+      if (current == goal) return dist.get(current);
+      for (GamePiece n : getConnectedNeighbors(current)) {
+        if (!dist.containsKey(n)) {
+          dist.put(n, dist.get(current) + 1);
+          worklist.add(n);
+        }
+      }
+    }
+    return 0;
+  }
+
+  int computeDiameter() {
+    GamePiece first = bfsFurthest(powerStation);
+    GamePiece second = bfsFurthest(first);
+    return bfsDepth(first, second);
+  }
+
+  public WorldScene makeScene() {
+    int statusBarHeight = 40;
+    int sceneWidth = width * TILE_SIZE;
+    int sceneHeight = height * TILE_SIZE + statusBarHeight;
+
+    WorldScene scene = new WorldScene(sceneWidth, sceneHeight);
+
+    // ensure we re-check power state on each frame
+    updateTilesIsPowered();
+
+    // draw game board
+    for (ArrayList<GamePiece> col : board)
+      for (GamePiece gp : col)
+        scene.placeImageXY(
+          gp.tileImage(),
+          gp.column * TILE_SIZE + TILE_SIZE / 2,
+          gp.row * TILE_SIZE + TILE_SIZE / 2);
+
+    // draw win message BEFORE status bar so wires aren't covered
+    if (isAllPowered()) {
+      scene.placeImageXY(
+        new TextImage("You win in " + steps + " steps, " + (timeElapsed / 60) + "s!", 26, Color.GREEN),
+        sceneWidth / 2,
+        height * TILE_SIZE / 2);
+    }
+
+    // draw background status bar at the bottom
+    scene.placeImageXY(
+      new RectangleImage(sceneWidth, statusBarHeight, OutlineMode.SOLID, Color.BLACK),
+      sceneWidth / 2,
+      sceneHeight - statusBarHeight / 2);
+
+    // draw text on bar
+    scene.placeImageXY(
+      new TextImage("Steps: " + steps + " | Time: " + (timeElapsed / 60) + "s", 20, Color.WHITE),
+      sceneWidth / 2,
+      sceneHeight - statusBarHeight / 2);
+
+    return scene;
+  }
+
+  public void onMouseClicked(Posn pos) {
+    int statusBarHeight = 40;
+    if (pos.y >= height * TILE_SIZE) {
+      return; // click is in the status bar, ignore it
+    }
+    int col = pos.x / TILE_SIZE;
+    int row = pos.y / TILE_SIZE;
+
+    if (col >= 0 && col < width && row >= 0 && row < height) {
+      board.get(col).get(row).rotate();
+      steps++;
+      updateTilesIsPowered();
+    }
+  }
+
+  public void onKeyEvent(String key) {
+    int newRow = powerRow;
+    int newCol = powerColumn;
+    GamePiece current = powerStation;
+
+    if (key.equals("up") && powerRow > 0) {
+      GamePiece above = board.get(powerColumn).get(powerRow - 1);
+      if (current.top && above.bottom) {
+        newRow--;
+      }
+    } else if (key.equals("down") && powerRow < height - 1) {
+      GamePiece below = board.get(powerColumn).get(powerRow + 1);
+      if (current.bottom && below.top) {
+        newRow++;
+      }
+    } else if (key.equals("left") && powerColumn > 0) {
+      GamePiece left = board.get(powerColumn - 1).get(powerRow);
+      if (current.left && left.right) {
+        newCol--;
+      }
+    } else if (key.equals("right") && powerColumn < width - 1) {
+      GamePiece right = board.get(powerColumn + 1).get(powerRow);
+      if (current.right && right.left) {
+        newCol++;
+      }
+    } else if (key.equals("n")) {
+      this.steps = 0;
+      this.timeElapsed = 0;
+      this.initBoard();
+      return;
+    }
+
+    if (newRow != powerRow || newCol != powerColumn) {
+      current.isPowerStation = false;
+      powerRow = newRow;
+      powerColumn = newCol;
+      powerStation = board.get(powerColumn).get(powerRow);
+      powerStation.isPowerStation = true;
+      updateTilesIsPowered();
+    }
+  }
+
+  boolean isAllPowered() {
+    for (ArrayList<GamePiece> col : board)
+      for (GamePiece gp : col)
+        if (!gp.isPowered) return false;
+    return true;
+  }
+}
+
+// examples and tests for LightEmAll game
+class ExamplesLightEmAll implements GameConstants {
+  LightEmAll game;
+
+  // reusable game pieces
+  GamePiece examplePiece00;
+  GamePiece examplePiece01;
+  GamePiece examplePiece10;
+  GamePiece examplePiece11;
+
+  // reusable board
+  ArrayList<ArrayList<GamePiece>> gameBoard;
+
+  void testGame(Tester t) {
+    LightEmAll game = new LightEmAll(5, 5);
+    game.bigBang(5 * TILE_SIZE, 5 * TILE_SIZE + 40, 0.1);
+  }
+
+  // initializes the data
+  void initData() {
+    this.game = new LightEmAll(5, 5);
+
+    examplePiece00 = new GamePiece(0, 0, false, true, true, false);
+    examplePiece01 = new GamePiece(0, 1, false, false, true, true);
+    examplePiece10 = new GamePiece(1, 0, true, true, false, false);
+    examplePiece11 = new GamePiece(1, 1, true, false, false, true);
+
+    ArrayList<GamePiece> column0 = new ArrayList<GamePiece>();
+    column0.add(examplePiece00);
+    column0.add(examplePiece10);
+
+    ArrayList<GamePiece> column1 = new ArrayList<GamePiece>();
+    column1.add(examplePiece01);
+    column1.add(examplePiece11);
+
+    gameBoard = new ArrayList<ArrayList<GamePiece>>();
+    gameBoard.add(column0);
+    gameBoard.add(column1);
+  }
+
+  // tests the rotate method
+  void testRotate(Tester t) {
+    initData();
+    GamePiece gamePiece = new GamePiece(0, 0, true, false, false, true);
+
+    gamePiece.rotate();
+    // after 1st rotate: top -> left, left -> bottom, bottom -> right, right -> top
+    t.checkExpect(gamePiece.top, true);
+    t.checkExpect(gamePiece.right, true);
+    t.checkExpect(gamePiece.bottom, false);
+    t.checkExpect(gamePiece.left, false);
+
+    gamePiece.rotate();
+    // after 2nd rotate
+    t.checkExpect(gamePiece.top, false);
+    t.checkExpect(gamePiece.right, true);
+    t.checkExpect(gamePiece.bottom, true);
+    t.checkExpect(gamePiece.left, false);
+
+    gamePiece.rotate();
+    // after 3rd rotate
+    t.checkExpect(gamePiece.top, false);
+    t.checkExpect(gamePiece.right, false);
+    t.checkExpect(gamePiece.bottom, true);
+    t.checkExpect(gamePiece.left, true);
+
+    gamePiece.rotate();
+    // after 4th rotate, state returns to original
+    t.checkExpect(gamePiece.top, true);
+    t.checkExpect(gamePiece.right, false);
+    t.checkExpect(gamePiece.bottom, false);
+    t.checkExpect(gamePiece.left, true);
+  }
+
+  /*
+   * 
+   * // tests the initBoard method void testInitBoard(Tester t) { initData();
+   * game.initBoard();
+   * 
+   * // board should have twice the width after initBoard (5 * 2 = 10)
+   * t.checkExpect(game.board.size(), 10);
+   * 
+   * // each column should have height 5 for (ArrayList<GamePiece> column :
+   * game.board) { t.checkExpect(column.size(), 5); }
+   * 
+   * // the power station should be centered at (2, 2)
+   * t.checkExpect(game.powerRow, 2); t.checkExpect(game.powerColumn, 2);
+   * 
+   * // the center piece should be marked as the power station GamePiece center =
+   * game.board.get(2).get(2); t.checkExpect(center.isPowerStation, true); }
+   * 
+   * // tests the isAllPowered method void testIsAllPowered(Tester t) {
+   * initData();
+   * 
+   * // all pieces powered examplePiece00.isPowered = true;
+   * examplePiece01.isPowered = true; examplePiece10.isPowered = true;
+   * examplePiece11.isPowered = true;
+   * 
+   * game.board = gameBoard;
+   * 
+   * // all tiles powered, should return true t.checkExpect(game.isAllPowered(),
+   * true);
+   * 
+   * // one tile unpowered, should return false examplePiece11.isPowered = false;
+   * t.checkExpect(game.isAllPowered(), false); }
+   * 
+   */
+
+  // tests the updateTilesIsPowered method
+  void testUpdateTilesIsPowered(Tester t) {
+    initData();
+
+    // set up the power station
+    examplePiece00.isPowerStation = true;
+    game.powerRow = 0;
+    game.powerColumn = 0;
+    game.powerStation = examplePiece00;
+    game.board = gameBoard;
+
+    game.updateTilesIsPowered();
+
+    // initially, all should be powered through valid connections
+    t.checkExpect(examplePiece00.isPowered, true);
+    t.checkExpect(examplePiece01.isPowered, true);
+    t.checkExpect(examplePiece10.isPowered, true);
+    t.checkExpect(examplePiece11.isPowered, true);
+
+    // break connections between pieces and update again
+    examplePiece01.bottom = false;
+    examplePiece11.top = false;
+    examplePiece10.right = false;
+    examplePiece11.left = false;
+    game.updateTilesIsPowered();
+
+    // only three pieces should be powered, one disconnected
+    t.checkExpect(examplePiece00.isPowered, true);
+    t.checkExpect(examplePiece01.isPowered, true);
+    t.checkExpect(examplePiece10.isPowered, true);
+    t.checkExpect(examplePiece11.isPowered, false);
+  }
+
+  // tests the onKeyEvent method
+  void testOnKeyEvent(Tester t) {
+    initData();
+
+    // set initial power station at top-left
+    examplePiece00.isPowerStation = true;
+    examplePiece00.isPowered = true;
+    game.powerRow = 0;
+    game.powerColumn = 0;
+    game.powerStation = examplePiece00;
+    game.board = gameBoard;
+
+    // move right
+    game.onKeyEvent("right");
+    t.checkExpect(game.powerColumn, 1);
+    t.checkExpect(game.powerRow, 0);
+    t.checkExpect(examplePiece00.isPowerStation, false);
+    t.checkExpect(examplePiece01.isPowerStation, true);
+
+    // move down
+    game.onKeyEvent("down");
+    t.checkExpect(game.powerColumn, 1);
+    t.checkExpect(game.powerRow, 1);
+    t.checkExpect(examplePiece01.isPowerStation, false);
+    t.checkExpect(examplePiece11.isPowerStation, true);
+
+    // move left
+    game.onKeyEvent("left");
+    t.checkExpect(game.powerColumn, 0);
+    t.checkExpect(game.powerRow, 1);
+    t.checkExpect(examplePiece11.isPowerStation, false);
+    t.checkExpect(examplePiece10.isPowerStation, true);
+
+    // move up
+    game.onKeyEvent("up");
+    t.checkExpect(game.powerColumn, 0);
+    t.checkExpect(game.powerRow, 0);
+    t.checkExpect(examplePiece10.isPowerStation, false);
+    t.checkExpect(examplePiece00.isPowerStation, true);
+
+    // try invalid move up (no connection)
+    examplePiece00.top = false;
+    game.onKeyEvent("up");
+    t.checkExpect(game.powerColumn, 0);
+    t.checkExpect(game.powerRow, 0);
+    t.checkExpect(examplePiece00.isPowerStation, true);
+
+    // try invalid move right (no mutual connection)
+    examplePiece00.right = false;
+    examplePiece01.left = false;
+    game.onKeyEvent("right");
+    t.checkExpect(game.powerColumn, 0);
+    t.checkExpect(game.powerRow, 0);
+    t.checkExpect(examplePiece00.isPowerStation, true);
+
+    // restore connection and try valid move right again
+    examplePiece00.right = true;
+    examplePiece01.left = true;
+    game.onKeyEvent("right");
+    t.checkExpect(examplePiece01.isPowerStation, true);
+    t.checkExpect(examplePiece01.isPowered, true);
+    t.checkExpect(examplePiece11.isPowered, true);
+  }
+
+  // tests the makeScene method
+  void testMakeScene(Tester t) {
+    initData();
+
+    // set up 1x1 board with powered power station
+    GamePiece piece = new GamePiece(0, 0, true, true, true, true);
+    piece.isPowerStation = true;
+    piece.isPowered = true;
+
+    ArrayList<GamePiece> column = new ArrayList<GamePiece>();
+    column.add(piece);
+    ArrayList<ArrayList<GamePiece>> board = new ArrayList<ArrayList<GamePiece>>();
+    board.add(column);
+
+    game.board = board;
+    game.powerRow = 0;
+    game.powerColumn = 0;
+    game.powerStation = piece;
+    game.width = 1;
+    game.height = 1;
+
+    // expected scene should include the tile and the "you win!" message
+    WorldScene expected = new WorldScene(TILE_SIZE, TILE_SIZE);
+    WorldImage tileImage = piece.tileImage();
+    expected.placeImageXY(tileImage, TILE_SIZE / 2, TILE_SIZE / 2);
+
+    if (game.isAllPowered()) {
+      WorldImage winText = new TextImage("You win!", 32, Color.GREEN);
+      expected.placeImageXY(winText, TILE_SIZE / 2, TILE_SIZE / 2);
+    }
+
+    WorldScene actual = game.makeScene();
+    // check actual scene matches expected scene
+    t.checkExpect(actual, expected);
+  }
+
+  //tests the onMouseClicked method
+   void testOnMouseClicked(Tester t) {
+     initData();
+  
+     // create a small 1x2 board with left as power station
+     GamePiece left = new GamePiece(0, 0, false, true, false, false);
+     GamePiece right = new GamePiece(0, 1, false, false, false, false);
+  
+     left.isPowerStation = true;
+     left.isPowered = true;
+  
+     game.powerRow = 0;
+     game.powerColumn = 0;
+     game.powerStation = left;
+  
+     ArrayList<GamePiece> column0 = new ArrayList<GamePiece>();
+     column0.add(left);
+     ArrayList<GamePiece> column1 = new ArrayList<GamePiece>();
+     column1.add(right);
+     ArrayList<ArrayList<GamePiece>> board = new ArrayList<ArrayList<GamePiece>>();
+     board.add(column0);
+     board.add(column1);
+     game.board = board;
+     game.width = 2;
+     game.height = 1;
+  
+     // simulate mouse click on the second tile (right piece)
+     game.onMouseClicked(new Posn(1 * TILE_SIZE + 1, 0 * TILE_SIZE + 1));
+  
+     // right tile's left should still be false and it should not be powered
+     t.checkExpect(right.left, false);
+     t.checkExpect(right.isPowered, false);
+   }
+}

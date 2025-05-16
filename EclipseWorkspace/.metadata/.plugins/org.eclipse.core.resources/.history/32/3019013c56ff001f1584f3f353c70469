@@ -1,0 +1,284 @@
+import tester.*;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Predicate;
+
+//represents a generic list
+interface IList<T> {
+// returns the result of applying the given visitor to this list
+  <R> R accept(IListVisitor<T, R> visitor);
+}
+
+//represents an empty generic list
+class MtList<T> implements IList<T> {
+
+  MtList() {
+  }
+
+// returns the result of applying the given visitor to this list
+  public <R> R accept(IListVisitor<T, R> visitor) {
+    return visitor.visitMtList(this);
+  }
+}
+
+//represents a generic non-empty list
+class ConsList<T> implements IList<T> {
+  T first;
+  IList<T> rest;
+
+  ConsList(T first, IList<T> rest) {
+    this.first = first;
+    this.rest = rest;
+  }
+
+// returns the result of applying the given visitor to this list
+  public <R> R accept(IListVisitor<T, R> visitor) {
+    return visitor.visitConsList(this);
+  }
+}
+
+//represents a generic list visitor
+interface IListVisitor<T, R> {
+
+// visits an empty list
+  R visitMtList(MtList<T> list);
+
+// visits a non-empty list
+  R visitConsList(ConsList<T> list);
+}
+
+//applies a function to each element of the list
+class MapVisitor<T, R> implements IListVisitor<T, IList<R>> {
+  Function<T, R> func;
+
+  MapVisitor(Function<T, R> func) {
+    this.func = func;
+  }
+  // returns the result of the map visitor on the element
+  public IList<R> apply(IList<T> element) {
+    return element.accept(this);
+  }
+
+// visits an empty list
+  public IList<R> visitMtList(MtList<T> list) {
+    return new MtList<R>();
+  }
+
+// visits a non-empty list
+  public IList<R> visitConsList(ConsList<T> list) {
+    return new ConsList<R>(func.apply(list.first), list.rest.accept(this));
+  }
+}
+
+//FoldRVisitor: folds the list from right to left using a function
+class FoldRVisitor<T, R> implements IListVisitor<T, R> {
+  BiFunction<T, R, R> func;
+  R base;
+
+  FoldRVisitor(BiFunction<T, R, R> func, R base) {
+    this.func = func;
+    this.base = base;
+  }
+  
+//lst accepts this
+ public R apply(IList<T> list) {
+   return list.accept(this);
+ }
+
+// visits an empty list
+  public R visitMtList(MtList<T> mt) {
+    return base;
+  }
+
+// visits a non-empty list
+  public R visitConsList(ConsList<T> cons) {
+    return func.apply(cons.first, cons.rest.accept(this));
+  }
+}
+
+// represents an instructor
+class Instructor {
+  String name;
+  IList<Course> courses;
+
+  Instructor(String name) {
+    this.name = name;
+    this.courses = new MtList<Course>();
+  }
+
+  // adds a course to the list of courses the instructor teachers
+  public void addCourse(Course c) {
+    this.courses = new ConsList<Course>(c, this.courses);
+  }
+
+  // determines whether the given student is in more than one of the instructor's
+  // classes
+  public boolean dejavu(Student s) {
+    return false;
+  }
+}
+
+// represents a student
+class Student {
+  String name;
+  int id;
+  IList<Course> courses;
+
+  Student(String name, int id) {
+    this.name = name;
+    this.id = id;
+    this.courses = new MtList<Course>();
+  }
+
+  // adds the course to the list of courses the student is taking
+  // adds the student to the list of students in the course
+  public void enroll(Course c) {
+    this.courses = new ConsList<Course>(c, this.courses);
+    c.addStudent(this);
+  }
+
+  // determines if the given student and this student share any courses
+  public boolean classmates(Student s) {
+     return new FoldRVisitor<Boolean, Boolean>( (b1, b2) -> b1 || b2, false).apply(new MapVisitor<Course, Boolean>((Course c) -> c.hasStudent(s)).apply(this.courses));
+   }
+}
+
+// represents a course
+class Course {
+  String name;
+  Instructor prof;
+  IList<Student> students;
+
+  Course(String name, Instructor prof) {
+    this.name = name;
+    this.prof = prof;
+    this.students = new MtList<Student>();
+    this.prof.addCourse(this);
+  }
+
+  // adds the given student to the list of students within the course
+  public void addStudent(Student s) {
+    this.students = new ConsList<Student>(s, this.students);
+  }
+}
+
+class AddOneIfTrue implements BiFunction<Boolean, Integer, Integer> {
+
+  // adds one if true else returns the same number
+  public Integer apply(Boolean b, Integer n) {
+    if (b) {
+      return n + 1;
+    }
+    return n;
+  }
+}
+
+//examples and tests for registrar
+class ExamplesRegistrar {
+  // example students
+  Student som;
+  Student ryan;
+  Student arthur;
+  Student anoushka;
+  Student naman;
+
+  // example instructors
+  Instructor razzaq;
+  Instructor sloan;
+  Instructor massey;
+  Instructor hamlin;
+
+  // example courses
+  Course fundies1;
+  Course fundies2;
+  Course calc3;
+  Course discrete;
+
+  // initialize test data
+  public void initializeData() {
+    // make students
+    som = new Student("Som", 1);
+    ryan = new Student("Ryan", 2);
+    arthur = new Student("Arthur", 3);
+    anoushka = new Student("Anoushka", 4);
+    naman = new Student("Naman", 5);
+
+    // make instructors
+    razzaq = new Instructor("Razzaq");
+    sloan = new Instructor("Sloan");
+    massey = new Instructor("Massey");
+    hamlin = new Instructor("Hamlin");
+
+    // make courses
+    fundies1 = new Course("Fundies 1", this.razzaq);
+    fundies2 = new Course("Fundies 2", this.razzaq);
+    calc3 = new Course("Calc 3", this.massey);
+    discrete = new Course("Discrete", this.hamlin);
+  }
+
+  // testing the enroll method
+  public void testEnroll(Tester t) {
+    // initialize data
+    initializeData();
+    // enrolling a student with no courses to a course
+    this.som.enroll(fundies1);
+    t.checkExpect(this.som.courses, new ConsList<Course>(this.fundies1, new MtList<Course>()));
+    t.checkExpect(this.fundies1.students, new ConsList<Student>(this.som, new MtList<Student>()));
+
+    // enrolling a student into a course he is already enrolled in
+    this.som.enroll(fundies1);
+    t.checkExpect(this.som.courses, new ConsList<Course>(this.fundies1, new MtList<Course>()));
+    t.checkExpect(this.fundies1.students, new ConsList<Student>(this.som, new MtList<Student>()));
+
+    // enrolling a student into a second course
+    this.som.enroll(this.calc3);
+    t.checkExpect(this.som.courses, new ConsList<Course>(this.calc3,
+        new ConsList<Course>(this.fundies1, new MtList<Course>())));
+    t.checkExpect(this.calc3.students, new ConsList<Student>(this.som, new MtList<Student>()));
+
+    // enrolling a second student to a course
+    this.ryan.enroll(fundies1);
+    t.checkExpect(this.ryan.courses, new ConsList<Course>(this.fundies1, new MtList<Course>()));
+    t.checkExpect(this.fundies1.students,
+        new ConsList<Student>(this.ryan, new ConsList<Student>(this.som, new MtList<Student>())));
+  }
+
+  // testing the classmates method
+  public void testClassmates(Tester t) {
+    // initialize data
+    initializeData();
+
+    // testing two students that are not classmates
+    this.som.enroll(fundies1);
+    t.checkExpect(this.som.classmates(this.ryan), false);
+
+    // testing two students that are classmates
+    this.ryan.enroll(fundies1);
+    t.checkExpect(this.som.classmates(this.ryan), true);
+
+    // testing two students that are classmates in more than one class
+    this.som.enroll(calc3);
+    this.ryan.enroll(calc3);
+    t.checkExpect(this.som.classmates(this.ryan), true);
+
+    // testing if a student is a classmate of itself
+    t.checkExpect(this.som.classmates(this.som), true);
+  }
+
+  // testing the dejavu method
+  public void dejavu(Tester t) {
+    // initialize data
+    initializeData();
+
+    // the student is in none of the instructor's courses
+    t.checkExpect(razzaq.dejavu(this.som), false);
+
+    // the student is in one of the instructor's courses
+    this.som.enroll(fundies1);
+    t.checkExpect(razzaq.dejavu(this.som), false);
+
+    // the student is in two of the instructor's courses
+    this.som.enroll(fundies2);
+    t.checkExpect(razzaq.dejavu(this.som), true);
+  }
+}

@@ -1,0 +1,27 @@
+ZType Game - User Guide
+
+Objective:
+The goal of the game is to type out words before they reach the bottom of the screen. 
+Each correctly typed word increases your score. 
+The game ends when any word reaches the bottom of the screen.
+
+How to Play:
+
+Words will come down the screen and move towards the bottom of the sreen.
+Type a word that appears on the screen, try typing the ones that are closest to the bottom.
+Any word you are typing will turn red.
+Once you type a letter correctly, the letter will get removed from the word.
+New words will start to come from the top of the screen as time goes on.
+
+Controls:
+
+Use your keyboard to type the words.
+
+Scoring:
+
+Each completed word increases your score.
+There is no penalty for mistyping.
+
+Winning & Losing:
+The game continues as long as you prevent words from reaching the bottom.
+If any word reaches the bottom of the screen, the game ends, and your final score is displayed.
